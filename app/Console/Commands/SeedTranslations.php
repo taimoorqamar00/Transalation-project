@@ -28,9 +28,15 @@ class SeedTranslations extends Command
     public function handle()
     {
          $locale = Locale::first();
+          if(!$locale) {
+            $locale = Locale::create([
+                'code' => 'en',
+                'name' => 'English',
+            ]);
+          }
          Translation::factory()
         ->count(100000)
-        ->create(['locale_id' => $locale->id]);
+        ->create(['locale_id' => $locale?->id]);
     $this->info('100k translations seeded');
     }
 }

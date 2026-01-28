@@ -1,0 +1,98 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Translation API",
+    "version": "1.0.0",
+    "description": "API for managing translations"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/api/translations": {
+      "post": {
+        "summary": "Create a new translation",
+        "tags": ["Translations"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["key", "locale_id", "content"],
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "locale_id": {
+                    "type": "integer"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Translation created successfully"
+          }
+        }
+      }
+    },
+    "/api/translations/search": {
+      "get": {
+        "summary": "Search translations",
+        "tags": ["Translations"],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "description": "Search by key",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of translations"
+          }
+        }
+      }
+    },
+    "/api/translations/export": {
+      "get": {
+        "summary": "Export translations by locale",
+        "tags": ["Translations"],
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "description": "Locale code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exported translations"
+          }
+        }
+      }
+    }
+  }
+}

@@ -5,7 +5,18 @@ return [
     'documentations' => [
         'default' => [
             'api' => [
-                'title' => 'L5 Swagger UI',
+                'title' => 'Translation Management API',
+                'description' => 'High-performance translation management service with multi-locale support, caching, and scalable architecture.',
+                'version' => '1.0.0',
+                'contact' => [
+                    'email' => 'support@translation-api.com'
+                ],
+                'servers' => [
+                    [
+                        'url' => env('APP_URL', 'http://localhost:8080') . '/api',
+                        'description' => 'Production server'
+                    ]
+                ]
             ],
 
             'routes' => [

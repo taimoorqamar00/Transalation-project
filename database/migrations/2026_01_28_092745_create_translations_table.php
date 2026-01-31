@@ -12,13 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('translations', function (Blueprint $table) {
-           $table->id();
+            $table->id();
             $table->string('key');
             $table->foreignId('locale_id')->constrained()->cascadeOnDelete();
             $table->text('content');
             $table->timestamps();
+            
             $table->unique(['key', 'locale_id']);
             $table->index('key');
+            $table->index('locale_id');
+            $table->index(['key', 'locale_id']);
         });
     }
 

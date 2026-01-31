@@ -4,9 +4,13 @@ namespace App\Repositories;
 
 use App\Models\Translation;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class TranslationRepository implements TranslationInterface
 {
+    private const CACHE_TTL = 3600;
+    private const EXPORT_CACHE_PREFIX = 'translations_export_';
+
     public function create(array $data)
     {
         return DB::transaction(function () use ($data) {
@@ -16,39 +20,100 @@ class TranslationRepository implements TranslationInterface
                 'content' => $data['content'],
             ]);
 
-            $translation->tags()->sync($data['tags']);
+            if (isset($data['tags'])) {
+                $translation->tags()->sync($data['tags']);
+            }
 
-            return $translation;
+            $this->clearExportCache($translation->locale->code ?? null);
+
+            return $translation->load(['locale', 'tags']);
         });
     }
 
     public function update(Translation $translation, array $data)
     {
-        $translation->update($data);
-        return $translation;
+        return DB::transaction(function () use ($translation, $data) {
+            $translation->update([
+                'key' => $data['key'] ?? $translation->key,
+                'content' => $data['content'] ?? $translation->content,
+            ]);
+
+            if (isset($data['tags'])) {
+                $translation->tags()->sync($data['tags']);
+            }
+
+            $this->clearExportCache($translation->locale->code ?? null);
+
+            return $translation->load(['locale', 'tags']);
+        });
+    }
+
+    public function delete(Translation $translation): bool
+    {
+        $localeCode = $translation->locale->code ?? null;
+        $result = $translation->delete();
+        
+        if ($result) {
+            $this->clearExportCache($localeCode);
+        }
+        
+        return $result;
+    }
+
+    public function findById(int $id)
+    {
+        return Translation::with(['locale', 'tags'])->find($id);
     }
 
     public function search(array $filters)
     {
-        return Translation::query()
-            ->with(['locale', 'tags'])
-            ->when($filters['key'] ?? null, fn ($q, $v) => $q->where('key', 'like', "%$v%"))
-            ->when($filters['content'] ?? null, fn ($q, $v) => $q->where('content', 'like', "%$v%"))
-            ->when($filters['locale'] ?? null, fn ($q, $v) =>
-                $q->whereHas('locale', fn ($l) => $l->where('code', $v))
-            )
-            ->when($filters['tag'] ?? null, fn ($q, $v) =>
-                $q->whereHas('tags', fn ($t) => $t->where('name', $v))
-            )
-            ->paginate(20);
+        $query = Translation::with(['locale', 'tags']);
+
+        if (!empty($filters['key'])) {
+            $query->where('key', 'like', '%' . $filters['key'] . '%');
+        }
+
+        if (!empty($filters['content'])) {
+            $query->where('content', 'like', '%' . $filters['content'] . '%');
+        }
+
+        if (!empty($filters['locale'])) {
+            $query->whereHas('locale', function ($q) use ($filters) {
+                $q->where('code', $filters['locale']);
+            });
+        }
+
+        if (!empty($filters['tag'])) {
+            $query->whereHas('tags', function ($q) use ($filters) {
+                $q->where('name', $filters['tag']);
+            });
+        }
+
+        return $query->paginate(
+            $filters['per_page'] ?? 20
+        );
     }
 
     public function exportByLocale(string $locale)
     {
-        return Translation::query()
-            ->select('key', 'content')
-            ->whereHas('locale', fn ($q) => $q->where('code', $locale))
-            ->cursor()
-            ->pluck('content', 'key');
+        $cacheKey = self::EXPORT_CACHE_PREFIX . $locale;
+
+        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($locale) {
+            return Translation::query()
+                ->select('key', 'content')
+                ->whereHas('locale', function ($query) use ($locale) {
+                    $query->where('code', $locale);
+                })
+                ->orderBy('key')
+                ->pluck('content', 'key')
+                ->toArray();
+        });
+    }
+
+    private function clearExportCache(?string $localeCode): void
+    {
+        if ($localeCode) {
+            Cache::forget(self::EXPORT_CACHE_PREFIX . $localeCode);
+        }
     }
 }
